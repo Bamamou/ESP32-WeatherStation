@@ -42,11 +42,47 @@ GND        ->  Sensor GND
 
 ## Software Setup
 
-### Android App:
-1. Open the project in Android Studio
-2. Sync Gradle dependencies
-3. Build and install the app on your Android device
-4. Make sure your Android device is on the same WiFi network as ESP32
+### Quick Installation (Windows):
+
+#### Option 1: One-Click Install 🚀
+```bash
+# Double-click to run:
+quick_install.bat
+```
+
+#### Option 2: Advanced Install 🔧
+```bash
+# For developers and advanced users:
+install_advanced.bat
+```
+
+#### Option 3: Development Setup 👨‍💻
+```bash
+# Set up full development environment:
+setup_dev.bat
+```
+
+### Manual Installation:
+
+#### Android App:
+1. **Prerequisites**:
+   - Android device with USB debugging enabled
+   - Android SDK Platform-Tools installed
+   - ADB in system PATH
+
+2. **Build and Install**:
+```bash
+# Clean and build
+.\gradlew clean assembleDebug
+
+# Install on connected device
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```
+
+3. **Alternative**: Open the project in Android Studio
+   - Sync Gradle dependencies
+   - Build and run on your Android device
+   - Make sure your Android device is on the same WiFi network as ESP32
 
 ### ESP32 Setup:
 1. Install required Arduino libraries:

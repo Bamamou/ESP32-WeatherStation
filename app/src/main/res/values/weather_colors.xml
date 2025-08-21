@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Weather App Colors -->
+    <color name="weather_blue">#1976D2</color>
+    <color name="weather_light_blue">#E3F2FD</color>
+    <color name="weather_orange">#FF9800</color>
+    <color name="weather_green">#4CAF50</color>
+    <color name="weather_gray">#90A4AE</color>
+</resources>

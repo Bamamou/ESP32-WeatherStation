@@ -55,11 +55,13 @@ fun MainScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Connection Status
-            ConnectionStatusCard(
-                esp32Device = uiState.esp32Device,
-                onReconnect = { viewModel.testConnection() },
-                onChangeIP = { showConfigDialog = true }
-            )
+            uiState.esp32Device?.let { device ->
+                ConnectionStatusCard(
+                    esp32Device = device,
+                    onReconnect = { viewModel.testConnection() },
+                    onChangeIP = { showConfigDialog = true }
+                )
+            }
             
             // Error Message
             uiState.errorMessage?.let { error ->

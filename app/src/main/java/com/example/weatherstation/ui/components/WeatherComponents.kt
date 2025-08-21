@@ -2,6 +2,7 @@ package com.example.weatherstation.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -31,58 +32,61 @@ fun WeatherCard(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Location and timestamp
             Text(
-                text = weatherData.location.ifEmpty { "Unknown Location" },
-                style = MaterialTheme.typography.headlineSmall,
+                text = "Weather Station: ${weatherData.location}",
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
             Text(
-                text = formatTimestamp(weatherData.timestamp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                text = "Last updated: ${formatTimestamp(weatherData.timestamp)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Temperature - main focus
+            // Main weather condition display with enhanced icon
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Thermostat,
-                    contentDescription = "Temperature",
-                    modifier = Modifier.size(48.dp),
-                    tint = getTemperatureColor(weatherData.temperature)
+                    imageVector = WeatherIconProvider.getEnhancedWeatherIcon(
+                        condition = weatherData.weatherCondition,
+                        isDay = WeatherIconProvider.isDayTime()
+                    ),
+                    contentDescription = "Weather condition",
+                    modifier = Modifier.size(80.dp),
+                    tint = WeatherIconProvider.getWeatherColor(weatherData.weatherCondition)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                
+                Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    text = "${weatherData.temperature.toInt()}°C",
-                    style = MaterialTheme.typography.displayMedium,
+                    text = "${weatherData.temperature}°C",
+                    style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
             Text(
-                text = weatherData.weatherCondition,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                text = "Condition: ${weatherData.weatherCondition}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             // Weather details grid
             WeatherDetailsGrid(weatherData)
@@ -98,35 +102,37 @@ fun WeatherDetailsGrid(weatherData: WeatherData) {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             WeatherDetailItem(
-                icon = Icons.Default.WaterDrop,
+                icon = WeatherIconProvider.getParameterIcon("humidity"),
                 label = "Humidity",
-                value = "${weatherData.humidity.toInt()}%",
+                value = "${weatherData.humidity}%",
                 modifier = Modifier.weight(1f)
             )
+            
             WeatherDetailItem(
-                icon = Icons.Default.Speed,
-                label = "Pressure",
-                value = "${weatherData.pressure.toInt()} hPa",
+                icon = WeatherIconProvider.getParameterIcon("pressure"),
+                label = "Pressure", 
+                value = "${weatherData.pressure} hPa",
                 modifier = Modifier.weight(1f)
             )
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             WeatherDetailItem(
-                icon = Icons.Default.Air,
+                icon = WeatherIconProvider.getParameterIcon("wind"),
                 label = "Wind",
-                value = "${weatherData.windSpeed} m/s ${weatherData.windDirection}",
+                value = "${weatherData.windSpeed} km/h ${weatherData.windDirection}",
                 modifier = Modifier.weight(1f)
             )
+            
             WeatherDetailItem(
-                icon = Icons.Default.WbSunny,
+                icon = WeatherIconProvider.getParameterIcon("uv"),
                 label = "UV Index",
-                value = weatherData.uvIndex.toString(),
+                value = "${weatherData.uvIndex}",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -148,20 +154,21 @@ fun WeatherDetailItem(
             imageVector = icon,
             contentDescription = label,
             modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+            tint = MaterialTheme.colorScheme.primary
         )
+        
         Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-            textAlign = TextAlign.Center
-        )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }
@@ -169,7 +176,7 @@ fun WeatherDetailItem(
 
 @Composable
 fun ConnectionStatusCard(
-    esp32Device: ESP32Device?,
+    esp32Device: ESP32Device,
     onReconnect: () -> Unit,
     onChangeIP: () -> Unit,
     modifier: Modifier = Modifier
@@ -177,8 +184,8 @@ fun ConnectionStatusCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (esp32Device?.isConnected == true) 
-                MaterialTheme.colorScheme.secondaryContainer 
+            containerColor = if (esp32Device.isConnected) 
+                MaterialTheme.colorScheme.primaryContainer 
             else MaterialTheme.colorScheme.errorContainer
         )
     ) {
@@ -191,95 +198,34 @@ fun ConnectionStatusCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = if (esp32Device?.isConnected == true) Icons.Default.Wifi else Icons.Default.WifiOff,
-                    contentDescription = "Connection Status",
-                    tint = if (esp32Device?.isConnected == true) Color.Green else Color.Red
+                    imageVector = if (esp32Device.isConnected) Icons.Default.Wifi else Icons.Default.WifiOff,
+                    contentDescription = if (esp32Device.isConnected) "Connected" else "Disconnected",
+                    tint = if (esp32Device.isConnected) Color.Green else Color.Red,
+                    modifier = Modifier.size(32.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
                 Column {
                     Text(
-                        text = esp32Device?.name ?: "ESP32 Weather Station",
+                        text = "ESP32: ${esp32Device.name}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = esp32Device?.ipAddress ?: "Not connected",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        text = if (esp32Device.isConnected) "Connected" else "Disconnected",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (esp32Device?.isConnected == true) {
-                        Text(
-                            text = "Last seen: ${formatTimestamp(esp32Device.lastSeen)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                    }
                 }
             }
             
             Row {
-                IconButton(onClick = onChangeIP) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Change IP"
-                    )
-                }
                 IconButton(onClick = onReconnect) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Reconnect"
-                    )
+                    Icon(Icons.Default.Refresh, "Reconnect")
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LocationSelector(
-    availableLocations: List<String>,
-    selectedLocation: String,
-    onLocationSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Select Location",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            if (availableLocations.isEmpty()) {
-                Text(
-                    text = "No locations available",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            } else {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(availableLocations.size) { index ->
-                        val location = availableLocations[index]
-                        FilterChip(
-                            onClick = { onLocationSelected(location) },
-                            label = { Text(location) },
-                            selected = location == selectedLocation,
-                            leadingIcon = if (location == selectedLocation) {
-                                { Icon(Icons.Default.Place, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                            } else null
-                        )
-                    }
+                IconButton(onClick = onChangeIP) {
+                    Icon(Icons.Default.Settings, "Change IP")
                 }
             }
         }
@@ -302,20 +248,29 @@ fun ErrorCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                imageVector = Icons.Default.Error,
-                contentDescription = "Error",
-                tint = MaterialTheme.colorScheme.error
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = errorMessage,
+            Row(
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Error,
+                    contentDescription = "Error",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(24.dp)
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+            
             IconButton(onClick = onDismiss) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -327,18 +282,340 @@ fun ErrorCard(
     }
 }
 
-// Helper functions
-private fun formatTimestamp(timestamp: Long): String {
-    val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    return sdf.format(Date(timestamp))
+@Composable
+fun LocationSelector(
+    availableLocations: List<String>,
+    selectedLocation: String?,
+    onLocationSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Select Location",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(availableLocations) { location ->
+                    FilterChip(
+                        onClick = { onLocationSelected(location) },
+                        label = { Text(location) },
+                        selected = selectedLocation == location,
+                        leadingIcon = {
+                            Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 
-private fun getTemperatureColor(temperature: Float): Color {
+@Composable
+fun LoadingCard(
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Loading weather data...",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun NoDataCard(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.CloudOff,
+                contentDescription = "No data",
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.outline
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "No weather data available",
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center
+            )
+            
+            Text(
+                text = "Check your ESP32 connection and try again",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(onClick = onRetry) {
+                Icon(Icons.Default.Refresh, null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Retry")
+            }
+        }
+    }
+}
+
+@Composable
+fun DeviceStatusCard(
+    deviceStatus: Map<String, Any>,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Device Status",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            deviceStatus.entries.forEach { (key, value) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = key.replaceFirstChar { it.uppercaseChar() },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = value.toString(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun ESP32DeviceCard(
+    device: ESP32Device,
+    onRefresh: () -> Unit = {},
+    onDisconnect: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (device.isConnected) 
+                MaterialTheme.colorScheme.primaryContainer 
+            else MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = WeatherIconProvider.getParameterIcon(
+                            if (device.isConnected) "esp32_connected" else "esp32_disconnected"
+                        ),
+                        contentDescription = if (device.isConnected) "Connected ESP32" else "Disconnected ESP32",
+                        tint = if (device.isConnected) Color.Green else Color.Red
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "Device: ${device.name}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        Text(
+                            text = "IP: ${device.ipAddress}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        if (!device.isConnected) {
+                            Text(
+                                text = "Last seen: ${formatTimestamp(device.lastSeen)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Row {
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh"
+                    )
+                }
+                
+                IconButton(onClick = onDisconnect) {
+                    Icon(
+                        imageVector = Icons.Default.PowerOff,
+                        contentDescription = "Disconnect"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ControlPanel(
+    esp32Devices: List<ESP32Device>,
+    onDeviceSelect: (ESP32Device) -> Unit,
+    onRefreshAll: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onRefreshAll) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refresh all",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Control Panel",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            IconButton(onClick = { /* Settings */ }) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DeviceFilterBar(
+    devices: List<ESP32Device>,
+    selectedDevice: ESP32Device?,
+    onDeviceSelect: (ESP32Device?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Connected Devices",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(devices) { device ->
+                    FilterChip(
+                        onClick = { onDeviceSelect(device) },
+                        label = { Text(device.name) },
+                        selected = selectedDevice == device,
+                        leadingIcon = {
+                            Icon(Icons.Default.DeviceHub, null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Helper function for timestamp formatting
+private fun formatTimestamp(timestamp: Long): String {
+    val formatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    return formatter.format(Date(timestamp))
+}
+
+// Helper function for temperature color coding
+private fun getTemperatureColor(temperature: Double): Color {
     return when {
-        temperature < 0 -> Color(0xFF3F51B5) // Cold - Blue
-        temperature < 15 -> Color(0xFF2196F3) // Cool - Light Blue
-        temperature < 25 -> Color(0xFF4CAF50) // Comfortable - Green
-        temperature < 35 -> Color(0xFFFF9800) // Warm - Orange
-        else -> Color(0xFFF44336) // Hot - Red
+        temperature < 0 -> Color(0xFF2196F3)  // Blue
+        temperature < 10 -> Color(0xFF00BCD4) // Cyan
+        temperature < 20 -> Color(0xFF4CAF50) // Green
+        temperature < 30 -> Color(0xFFFF9800) // Orange
+        else -> Color(0xFFF44336)              // Red
     }
 }
