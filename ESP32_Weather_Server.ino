@@ -1,29 +1,21 @@
 /*
- * ESP32 Weather Station Server
+ * ESP32 Weather Station Server - OPTIMIZED FOR SPEED
  * 
- * This code creates a web server on ESP32 that provides weather data
- * from different cities and communicates with the Android app.
+ * Lightweight version using only DHT sensor for maximum performance
  * 
  * Hardware connections:
  * - DHT22 sensor: Pin 4
- * - BMP280 sensor: SDA->21, SCL->22
- * - Status LED: Pin 2
  * 
  * Libraries needed:
  * - WiFi (built-in)
  * - ArduinoJson
  * - DHT sensor library
- * - Adafruit BMP280
- * - HTTPClient
  */
 
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ArduinoJson.h>
-#include <HTTPClient.h>
 #include <DHT.h>
-#include <Wire.h>
-#include <Adafruit_BMP280.h>
 
 // WiFi credentials
 const char* ssid = "YOUR_WIFI_SSID";
@@ -32,87 +24,48 @@ const char* password = "YOUR_WIFI_PASSWORD";
 // Pin definitions
 #define DHT_PIN 4
 #define DHT_TYPE DHT22
-#define STATUS_LED 2
-#define SDA_PIN 21
-#define SCL_PIN 22
 
-// Sensor objects
+// Sensor object
 DHT dht(DHT_PIN, DHT_TYPE);
-Adafruit_BMP280 bmp;
 
 // Web server
 WebServer server(80);
 
-// Weather data
-struct WeatherData {
-  float temperature;
-  float humidity;
-  float pressure;
-  String location;
-  unsigned long timestamp;
-  String weatherCondition;
-  float windSpeed;
-  String windDirection;
-  float uvIndex;
-  float visibility;
-};
-
-// Available locations (cities)
-String availableLocations[] = {
-  "New York",
-  "London", 
-  "Tokyo",
-  "Sydney",
-  "Paris",
-  "Berlin",
-  "Local" // For local sensor data
-};
-
-String currentLocation = "Local";
-WeatherData currentWeather;
-
-// OpenWeatherMap API (optional - for getting real city weather)
-const String WEATHER_API_KEY = "YOUR_OPENWEATHER_API_KEY"; // Get free API key from openweathermap.org
-const String WEATHER_BASE_URL = "http://api.openweathermap.org/data/2.5/weather";
+// Cached sensor data for fast responses
+float cachedTemp = 0;
+float cachedHumidity = 0;
+unsigned long lastSensorRead = 0;
+const unsigned long SENSOR_INTERVAL = 10000; // 10 seconds cache
 
 void setup() {
   Serial.begin(115200);
   
-  // Initialize pins
-  pinMode(STATUS_LED, OUTPUT);
-  digitalWrite(STATUS_LED, LOW);
-  
-  // Initialize sensors
+  // Initialize DHT sensor only
   dht.begin();
-  Wire.begin(SDA_PIN, SCL_PIN);
-  
-  if (!bmp.begin(0x76)) {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-  }
   
   // Connect to WiFi
   connectToWiFi();
   
-  // Setup web server routes
+  // Setup web server routes (minimal)
   setupWebServer();
   
   // Start server
   server.begin();
   Serial.println("ESP32 Weather Station Server started!");
-  digitalWrite(STATUS_LED, HIGH);
 }
 
 void loop() {
+  // Handle client requests immediately
   server.handleClient();
   
-  // Update sensor data every 30 seconds
-  static unsigned long lastUpdate = 0;
-  if (millis() - lastUpdate > 30000) {
-    updateLocalWeatherData();
-    lastUpdate = millis();
+  // Update cached sensor data every 10 seconds for speed
+  if (millis() - lastSensorRead > SENSOR_INTERVAL) {
+    readSensorData();
+    lastSensorRead = millis();
   }
   
-  delay(100);
+  // Minimal delay for stability
+  delay(10);
 }
 
 void connectToWiFi() {
@@ -146,106 +99,28 @@ void setupWebServer() {
     }
   });
   
-  // Get current weather
+  // Get current weather - OPTIMIZED
   server.on("/weather", HTTP_GET, []() {
     addCORSHeaders();
-    if (currentLocation == "Local") {
-      updateLocalWeatherData();
-    } else {
-      // Get weather from API for selected city
-      getWeatherFromAPI(currentLocation);
-    }
-    sendWeatherResponse();
+    sendFastWeatherResponse();
   });
   
-  // Get weather for specific location
-  server.on("/weather/", HTTP_GET, []() {
-    addCORSHeaders();
-    String location = server.pathArg(0);
-    if (location == "Local") {
-      updateLocalWeatherData();
-    } else {
-      getWeatherFromAPI(location);
-    }
-    sendWeatherResponse();
-  });
-  
-  // Get available locations
-  server.on("/locations", HTTP_GET, []() {
-    addCORSHeaders();
-    DynamicJsonDocument doc(1024);
-    doc["success"] = true;
-    doc["timestamp"] = millis();
-    
-    JsonArray locations = doc.createNestedArray("data");
-    for (int i = 0; i < sizeof(availableLocations)/sizeof(availableLocations[0]); i++) {
-      locations.add(availableLocations[i]);
-    }
-    
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
-  });
-  
-  // Set location
-  server.on("/location", HTTP_POST, []() {
-    addCORSHeaders();
-    String body = server.arg("plain");
-    DynamicJsonDocument requestDoc(512);
-    deserializeJson(requestDoc, body);
-    
-    String newLocation = requestDoc["location"];
-    
-    // Validate location
-    bool isValid = false;
-    for (int i = 0; i < sizeof(availableLocations)/sizeof(availableLocations[0]); i++) {
-      if (availableLocations[i] == newLocation) {
-        isValid = true;
-        break;
-      }
-    }
-    
-    DynamicJsonDocument doc(512);
-    if (isValid) {
-      currentLocation = newLocation;
-      doc["success"] = true;
-      doc["data"] = "Location set to " + newLocation;
-    } else {
-      doc["success"] = false;
-      doc["data"] = "Invalid location";
-    }
-    doc["timestamp"] = millis();
-    
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
-  });
-  
-  // Ping endpoint
+  // Ping endpoint - MINIMAL
   server.on("/ping", HTTP_GET, []() {
     addCORSHeaders();
-    DynamicJsonDocument doc(256);
-    doc["success"] = true;
-    doc["data"] = "pong";
-    doc["timestamp"] = millis();
-    
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
+    server.send(200, "application/json", "{\"success\":true,\"data\":\"pong\"}");
   });
   
-  // Device status
+  // Device status - ESSENTIAL ONLY
   server.on("/status", HTTP_GET, []() {
     addCORSHeaders();
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(512);
     doc["success"] = true;
     doc["timestamp"] = millis();
     
     JsonObject status = doc.createNestedObject("data");
     status["uptime"] = millis();
     status["freeMemory"] = ESP.getFreeHeap();
-    status["wifiSignalStrength"] = WiFi.RSSI();
-    status["firmwareVersion"] = "1.0.0";
     
     String response;
     serializeJson(doc, response);
@@ -259,103 +134,41 @@ void addCORSHeaders() {
   server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
-void updateLocalWeatherData() {
-  // Read local sensors
-  currentWeather.temperature = dht.readTemperature();
-  currentWeather.humidity = dht.readHumidity();
+void readSensorData() {
+  cachedTemp = dht.readTemperature();
+  cachedHumidity = dht.readHumidity();
   
-  if (bmp.begin()) {
-    currentWeather.pressure = bmp.readPressure() / 100.0F; // Convert Pa to hPa
-  }
-  
-  currentWeather.location = "Local Sensor";
-  currentWeather.timestamp = millis();
-  currentWeather.weatherCondition = getWeatherCondition(currentWeather.temperature, currentWeather.humidity);
-  currentWeather.windSpeed = 0; // No wind sensor in basic setup
-  currentWeather.windDirection = "N";
-  currentWeather.uvIndex = 0; // No UV sensor in basic setup
-  currentWeather.visibility = 10; // Default visibility
-  
-  Serial.println("Local weather updated:");
-  Serial.printf("Temperature: %.1f°C, Humidity: %.1f%%, Pressure: %.1f hPa\n", 
-                currentWeather.temperature, currentWeather.humidity, currentWeather.pressure);
-}
-
-void getWeatherFromAPI(String city) {
-  if (WEATHER_API_KEY == "YOUR_OPENWEATHER_API_KEY") {
-    // Use dummy data if no API key
-    currentWeather.temperature = 20.0 + random(-10, 15);
-    currentWeather.humidity = 50.0 + random(-20, 30);
-    currentWeather.pressure = 1013.0 + random(-50, 50);
-    currentWeather.location = city;
-    currentWeather.timestamp = millis();
-    currentWeather.weatherCondition = "Simulated";
-    currentWeather.windSpeed = random(0, 20);
-    currentWeather.windDirection = "SW";
-    currentWeather.uvIndex = random(0, 10);
-    currentWeather.visibility = 10;
+  // Check if readings are valid
+  if (isnan(cachedTemp) || isnan(cachedHumidity)) {
+    Serial.println("Failed to read from DHT sensor!");
     return;
   }
   
-  // Make API call to OpenWeatherMap
-  HTTPClient http;
-  String url = WEATHER_BASE_URL + "?q=" + city + "&appid=" + WEATHER_API_KEY + "&units=metric";
-  
-  http.begin(url);
-  int httpResponseCode = http.GET();
-  
-  if (httpResponseCode == 200) {
-    String payload = http.getString();
-    DynamicJsonDocument doc(2048);
-    deserializeJson(doc, payload);
-    
-    currentWeather.temperature = doc["main"]["temp"];
-    currentWeather.humidity = doc["main"]["humidity"];
-    currentWeather.pressure = doc["main"]["pressure"];
-    currentWeather.location = doc["name"];
-    currentWeather.timestamp = millis();
-    currentWeather.weatherCondition = doc["weather"][0]["description"];
-    currentWeather.windSpeed = doc["wind"]["speed"];
-    currentWeather.windDirection = "N"; // Simplified
-    currentWeather.uvIndex = 0; // Not in basic API
-    currentWeather.visibility = doc["visibility"] | 10000;
-    currentWeather.visibility = currentWeather.visibility / 1000; // Convert to km
-  } else {
-    Serial.printf("Error getting weather data: %d\n", httpResponseCode);
-    // Use local sensor data as fallback
-    updateLocalWeatherData();
-  }
-  
-  http.end();
+  Serial.printf("Sensor updated: %.1f°C, %.1f%%\n", cachedTemp, cachedHumidity);
 }
 
-void sendWeatherResponse() {
-  DynamicJsonDocument doc(1024);
+void sendFastWeatherResponse() {
+  // Use pre-allocated buffer for speed
+  DynamicJsonDocument doc(512);
   doc["success"] = true;
   doc["timestamp"] = millis();
   
   JsonObject data = doc.createNestedObject("data");
-  data["temperature"] = currentWeather.temperature;
-  data["humidity"] = currentWeather.humidity;
-  data["pressure"] = currentWeather.pressure;
-  data["location"] = currentWeather.location;
-  data["timestamp"] = currentWeather.timestamp;
-  data["weather_condition"] = currentWeather.weatherCondition;
-  data["wind_speed"] = currentWeather.windSpeed;
-  data["wind_direction"] = currentWeather.windDirection;
-  data["uv_index"] = currentWeather.uvIndex;
-  data["visibility"] = currentWeather.visibility;
+  data["temperature"] = cachedTemp;
+  data["humidity"] = cachedHumidity;
+  data["location"] = "Local Sensor";
+  data["weather_condition"] = getSimpleWeatherCondition(cachedTemp, cachedHumidity);
   
   String response;
+  response.reserve(256); // Pre-allocate string memory
   serializeJson(doc, response);
   server.send(200, "application/json", response);
 }
 
-String getWeatherCondition(float temp, float humidity) {
-  if (temp < 0) return "Freezing";
-  if (temp > 35) return "Very Hot";
-  if (humidity > 80) return "Very Humid";
-  if (humidity < 30) return "Dry";
-  if (temp > 25 && temp < 30) return "Pleasant";
-  return "Moderate";
+String getSimpleWeatherCondition(float temp, float humidity) {
+  if (temp < 0) return "Cold";
+  if (temp > 30) return "Hot";
+  if (humidity > 70) return "Humid";
+  if (humidity < 40) return "Dry";
+  return "Pleasant";
 }
